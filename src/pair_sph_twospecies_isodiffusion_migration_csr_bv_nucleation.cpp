@@ -1,0 +1,542 @@
+#include <math.h>
+#include <stdlib.h>
+#include "pair_sph_twospecies_isodiffusion_migration_csr_bv_nucleation.h"
+#include "sph_kernel_quintic.h"
+#include "atom.h"
+#include "force.h"
+#include "comm.h"
+#include "memory.h"
+#include "error.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "neighbor.h"
+#include "domain.h"
+#include <cstdio>
+
+using namespace LAMMPS_NS;
+
+/* ---------------------------------------------------------------------- */
+
+PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation(LAMMPS *lmp) : Pair(lmp)
+{
+  restartinfo = 0;
+
+  // find the anion concentration property
+  int fcA;
+  int icA = atom->find_custom("cA", fcA);
+  if (icA < 0)
+    error->all(FLERR,
+	       "Can't find property cA for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  cA = atom->dvector[icA];
+
+  // find the local anion concentration property
+  int fdcA;
+  int idcA = atom->find_custom("dcA", fdcA);
+  if (idcA < 0)
+    error->all(FLERR,
+	       "Can't find property dcA for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  dcA = atom->dvector[idcA];
+
+  // find the cation concentration property
+  int fcC;
+  int icC = atom->find_custom("cC", fcC);
+  if (icC < 0)
+    error->all(FLERR,
+	       "Can't find property cC for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  cC = atom->dvector[icC];
+
+  // find the local cation concentration property
+  int fdcC;
+  int idcC = atom->find_custom("dcC", fdcC);
+  if (idcC < 0)
+    error->all(FLERR,
+	       "Can't find property dcC for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  dcC = atom->dvector[idcC];
+
+  // find the anion mobility property
+  int fmuA;
+  int imuA = atom->find_custom("muA", fmuA);
+  if (imuA < 0)
+    error->all(FLERR,
+	       "Can't find property muA for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  muA = atom->dvector[imuA];
+
+    // find the cation mobility property
+  int fmuC;
+  int imuC = atom->find_custom("muC", fmuC);
+  if (imuC < 0)
+    error->all(FLERR,
+	       "Can't find property muC for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  muC = atom->dvector[imuC];
+
+  // find the local anion diffusivity constant
+  int fDA;
+  int iDA = atom->find_custom("DA", fDA);
+  if (iDA < 0)
+    error->all(FLERR,
+	       "Can't find property DA for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  DA = atom->dvector[iDA];
+
+  // find the local cation diffusivity constant
+  int fDC;
+  int iDC = atom->find_custom("DC", fDC);
+  if (iDC < 0)
+    error->all(FLERR,
+	       "Can't find property DC for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  DC = atom->dvector[iDC];
+  
+  //find the reaction rate coefficient for cations
+  int fRC;
+  int iRC = atom->find_custom("RC", fRC);
+  if (iRC < 0)
+    error->all(FLERR,
+               "Can't find property RC for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  RC = atom->dvector[iRC];
+
+
+  // find the mass of metal property
+  int fmM;
+  int imM = atom->find_custom("mM", fmM);
+  if (imM < 0)
+    error->all(FLERR,
+	       "Can't find property mM for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  mM = atom->dvector[imM];
+
+  // find the change in mass of metal property
+  int fdmM;
+  int idmM = atom->find_custom("dmM", fdmM);
+  if (idmM < 0)
+    error->all(FLERR,
+	       "Can't find property dmM for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  dmM = atom->dvector[idmM];
+
+  // find the local potential
+  int flocal_pot;
+  int ilocal_pot = atom->find_custom("local_pot", flocal_pot);
+  if (ilocal_pot < 0)
+    error->all(FLERR,
+	       "Can't find property local_pot for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  local_pot = atom->dvector[ilocal_pot];
+
+  // find the surface energy
+  int fenergy;
+  int ienergy = atom->find_custom("energy", fenergy);
+  if (ienergy < 0)
+    error->all(FLERR,
+	       "Can't find property energy for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  energy = atom->dvector[ienergy];
+
+  // find the x-component normal
+  int fnx;
+  int inx = atom->find_custom("nx", fnx);
+  if (inx < 0)
+    error->all(FLERR,
+	       "Can't find property nx for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  nx = atom->dvector[inx];
+  
+  // find the y-component normal
+  int fny;
+  int iny = atom->find_custom("ny", fny);
+  if (iny < 0)
+    error->all(FLERR,
+	       "Can't find property ny for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  ny = atom->dvector[iny];
+  
+  
+  // find the z-component normal
+  int fnz;
+  int inz = atom->find_custom("nz", fnz);
+  if (inz < 0)
+    error->all(FLERR,
+	       "Can't find property nz for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+  nz = atom->dvector[inz];
+  
+  // set comm size needed by this pair
+  comm_forward = 8;
+  comm_reverse = 6;
+}
+
+/* ---------------------------------------------------------------------- */
+
+PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::~PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation() {
+  if (allocated) {
+    memory->destroy(setflag);
+    memory->destroy(cutsq);
+    memory->destroy(cut);
+    memory->destroy(phase_support);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::init_style()
+{
+  // need a full neighbour list
+  int irequest = neighbor->request(this);
+  neighbor->requests[irequest]->half = 0;
+  neighbor->requests[irequest]->full = 1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::compute(int eflag, int vflag) {
+  int i, j, ii, jj, inum, jnum, itype, jtype;
+  double delx, dely, delz;
+
+  int *ilist, *jlist, *numneigh, **firstneigh;
+  double imass, jmass, h, ih, ihsq;
+  double r, wf, wfd, D, K;
+
+  double deltaDcA, deltaDcAixx, deltaDcAjxx, deltaDcAiyy, deltaDcAjyy, deltaDcAy, deltaDcAx;
+  double deltaDcC, deltaDcCixx, deltaDcCjxx, deltaDcCiyy, deltaDcCjyy, deltaDcCy, deltaDcCx;
+  double deltaMcA, deltaMcAi, deltaMcAj;
+  double deltaMcC, deltaMcCi, deltaMcCj;
+  double deltaDmM;
+  double ni, nj;
+  //Parameters for Butler-Volmer  
+  double anodePot, overPot;
+  double pi, faraday, R, T;
+  double transCoefC, transCoefM;
+  double bulkcA, bulkcC;
+  //Parameters for Nucleation
+  double A, mVol;
+  double G, GV;
+  double Rate;
+  double k, f, rad, keV;
+  double NucD, nucflux;
+  double E;
+
+  pi = 3.1415927;
+  faraday = 96485;
+  R = 8.3145;
+  T = 300;
+  transCoefC = 0.5;
+  transCoefM = 0.5;
+  anodePot = 0.0;
+  overPot = 0.0;
+  bulkcA = pow(cA_init, transCoefM);
+  bulkcC = pow(cC_init, transCoefC);
+  A = pow(10,12);
+  mVol = 1.297*pow(10,-5);
+  k = 1.38*pow(10,-23);
+  keV = 8.62*pow(10,-5);
+  E = 0.53; 
+
+  if (eflag || vflag)
+    ev_setup(eflag, vflag);
+  else
+    evflag = vflag_fdotr = 0;
+
+  double **x = atom->x;
+  double *rmass = atom->rmass;
+  double *rho = atom->rho;
+  int *type = atom->type;
+  int nlocal = atom->nlocal;
+  int nall = nlocal + atom->nghost;
+
+  inum = list->inum;
+  ilist = list->ilist;
+  numneigh = list->numneigh;
+  firstneigh = list->firstneigh;
+  
+  // Communicate the local cA to the ghost atoms
+  comm->forward_comm_pair(this);
+
+  for (ii = 0; ii < inum; ii++)
+    {
+      dmM[ii] = 0.0;
+      dcA[ii] = 0.0;
+      dcC[ii] = 0.0;
+    }
+  
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    // check that we are only doing local and ghost atoms only
+    itype = type[i];
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
+    
+    imass = rmass[i];
+    
+    for (jj = 0; jj < jnum; jj++) {
+      j = jlist[jj];
+      j &= NEIGHMASK;
+      // check that we are only doing local and ghost atoms only
+      jtype = type[j];
+      jmass = rmass[j];
+
+      delx = x[i][0] - x[j][0];
+      dely = x[i][1] - x[j][1];
+      delz = x[i][2] - x[j][2];
+      r = sqrt(delx * delx + dely * dely + delz * delz);
+      
+      if (r< cut[itype][jtype]) {
+	h = cut[itype][jtype];
+	ih = 1.0/h;
+	
+	// kernel function
+	if (domain->dimension == 3) {
+	  wfd = sph_dw_quintic3d(r*ih);
+	  wfd = wfd*ih*ih*ih*ih;
+	  wf = sph_kernel_quintic3d(r*ih)*ih*ih*ih;
+	} else {
+	  wfd = sph_dw_quintic2d(r*ih);
+	  wfd = wfd*ih*ih*ih;
+	  wf = sph_kernel_quintic2d(r*ih)*ih*ih;
+	}
+	
+	if ((itype==1) && (jtype==1)) { // fluid-fluid interaction outside of flux
+	  // Calculating the particle exchange
+	  // Reference: Tartakovsky(2007) - Simulations of reactive transport
+	  // and precipitation with sph
+	  // The constants give better results...
+	  ni = rho[i] / imass;
+	  nj = rho[j] / jmass;
+	  
+	  // Anion mass transport
+	  // Anion diffusion
+	  deltaDcA = (1.0/(imass*r))*(DA[i]*ni*imass + DA[j]*nj*jmass) \
+	    /(ni*nj) * (cA[i] - cA[j])*wfd;
+	  
+	  // Migration
+
+	  deltaMcAi = muA[i]*cA[i]*ni*imass/0.41615; // 
+	  deltaMcAj = muA[i]*cA[j]*nj*jmass/0.41615; // /0.041 // TODO: muA[j] is always 0 when it should be equal to muA[i]
+	  // Total migration
+	  deltaMcA = (1.0/(imass*r))*(deltaMcAi + deltaMcAj)/(ni*nj) \
+	    * (local_pot[i] - local_pot[j])*wfd;
+	  // Total anion transport
+	  dcA[i] += deltaDcA - deltaMcA;
+	  
+	  // Cation mass transport
+	  // Cation diffusion
+	  deltaDcC = (1.0/(imass*r))*(DC[i]*ni*imass + DC[j]*nj*jmass) \
+	    /(ni*nj) * (cC[i] - cC[j] )*wfd;
+	  
+	  // Migration
+	  deltaMcCi = muC[i]*cC[i]*ni*imass/0.41615;
+	  deltaMcCj = muC[i]*cC[j]*nj*jmass/0.41615;// TODO: muA[j] is always 0 when it should be equal to muA[i]	      // Total migration
+	  deltaMcC = (1.0/(imass*r))*(deltaMcCi + deltaMcCj)/(ni*nj) \
+	    * (local_pot[i] - local_pot[j])*wfd;  
+	  // Total cation transport
+	  dcC[i] += deltaDcC + deltaMcC;
+
+	} // fluid-fluid interaction
+	else if ((itype==1) && (jtype==2)) {  // fluid-solid interaction
+	  if (r <= phase_support[itype][jtype]) {
+	    // Classical Nucleation Theory - Heterogenous nucleation at anode surface
+	    rad = (2*energy[j]*mVol)/(faraday*overPot);
+	    NucD = 2*rad*pow(10,-6);
+	    GV = (faraday*overPot)/mVol;
+	    f = (2-cos(theta)+pow(cos(theta),3))/4;
+	    G = (16*pi*pow(energy[j],3))/(3*pow(GV,2))*f;
+	    Rate = A*exp(G/k/T)*exp(-E/keV/T);
+	    nucflux = Rate*t*(NucD/AnodeL);
+	    // Butler - Volmer equations for reaction at solid fluid interface
+	    deltaDcC = 1.0*RC[j]*bulkcA*bulkcC*(((cC[i]/cC_init)*exp(transCoefC*faraday*overPot/R/T)) - ((mM[j]/mass_init)*exp(-1*transCoefM*faraday*overPot/R/T)))*nucflux;
+	    deltaDcC *= fabs(nx[i]) + fabs(nx[j]) + fabs(ny[i]) + fabs(ny[j]);
+	    dcC[i] -= deltaDcC*fabs(wfd);
+	  }
+	} // fluid-solid interaction   
+	else if ((itype==2) && (jtype==1)) { // solid-fluid interaction               
+	  if (r<= phase_support[itype][jtype]) {
+	    // Overpotential Calculation
+	    overPot = applied_pot + local_pot[j]; // - anodePot
+	    printf("overPot: %.5f \n",overPot);
+
+	    // Classical Nucleation Theory - Heterogenous nucleation at anode surface                                                                   
+	    rad = (2*energy[i]*mVol)/(faraday*overPot);
+	    printf("radius: %.5f \n",rad);
+	    NucD = 2*rad*pow(10,-6);
+	    printf("NucD: %.15f \n",NucD);
+            GV = (faraday*overPot)/mVol;
+	    printf("GV: %.5f \n",GV);
+            f = (2-cos(theta)+pow(cos(theta),3))/4;
+	    printf("f: %.5f \n",f);
+            G = (16*pi*pow(energy[i],3))/(3*pow(GV,2))*f;
+	    printf("G: %.25f \n",G);
+            Rate = A*exp(G/k/T)*exp(-E/keV/T);
+	    printf("rate: %.5f \n",Rate);
+            nucflux = Rate*t*(NucD/AnodeL);
+	    printf("nucflux: %.5f \n",nucflux);
+	    printf("time: %.10f \n", t);
+	    // Butler - Volmer equations for reaction at solid fluid interface
+	    deltaDmM = (jmass)*RC[i]*bulkcA*bulkcC*(((cC[j]/cC_init)*exp(transCoefC*faraday*overPot/R/T)) - ((mM[i]/mass_init)*exp(-1*transCoefM*faraday*overPot/R/T)))*nucflux;
+	    deltaDmM *= fabs(nx[j]) + fabs(nx[i]) + fabs(ny[j]) + fabs(ny[i]);
+	    dmM[i] += deltaDmM*fabs(wfd);
+	  }
+	} // solid-fluid interaction                                             
+      } // check if j particle is inside kernel
+    } // jj loop
+  } // ii loop
+  // Communicate the ghost dcA, dcC and dmM to the locally owned atoms
+  comm->reverse_comm_pair(this);
+}
+
+
+/* ----------------------------------------------------------------------
+   allocate all arrays
+   ------------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::allocate() {
+  allocated = 1;
+  int n = atom->ntypes;
+
+  memory->create(setflag, n + 1, n + 1, "pair:setflag");
+  for (int i = 1; i <= n; i++)
+    for (int j = i; j <= n; j++)
+      setflag[i][j] = 0;
+
+  memory->create(cutsq, n + 1, n + 1, "pair:cutsq");
+  memory->create(cut, n + 1, n + 1, "pair:cut");
+  memory->create(phase_support, n + 1, n + 1, "pair:phase_support");
+}
+
+/* e----------------------------------------------------------------------
+   global settings
+   ------------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::settings(int narg, char **arg) {
+  if (narg != 0)
+    error->all(FLERR,
+	       "Illegal number of setting arguments for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation");
+}
+
+/* ----------------------------------------------------------------------
+   set coefs for one or more type pairs
+   ------------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::coeff(int narg, char **arg) {
+  if (narg != 11)
+    error->all(FLERR,"Incorrect number of args for pair_style sph/twospecies/isodiffusion/migration/csr/bv/nucleation coefficients");
+  if (!allocated)
+    allocate();
+
+  int ilo, ihi, jlo, jhi;
+  utils::bounds(FLERR,arg[0],1,atom->ntypes,ilo,ihi,error);
+  utils::bounds(FLERR,arg[1],1,atom->ntypes,jlo,jhi,error);
+
+  // Get kernel size
+  double kernel_one = utils::numeric(FLERR,arg[2],false,lmp);
+  double phase_one = utils::numeric(FLERR,arg[3],false,lmp);
+
+  // Get the applied potential
+  applied_pot = utils::numeric(FLERR,arg[4],false,lmp);
+
+  // Get the initial cation and anion concentrations
+  cC_init = utils::numeric(FLERR,arg[5],false,lmp);
+  cA_init = utils::numeric(FLERR,arg[6],false,lmp);
+
+  // Get the inital mass 
+  mass_init = utils::numeric(FLERR,arg[7],false,lmp);
+  
+  // Get the contact Angle
+  theta = utils::numeric(FLERR,arg[8],false,lmp);
+
+  // Get the length of the Anode
+  AnodeL = utils::numeric(FLERR,arg[9],false,lmp);
+  
+  //Get the time
+  t = utils::numeric(FLERR,arg[10],false,lmp);
+
+  int count = 0;
+  for (int i = ilo; i <= ihi; i++) {
+    for (int j = MAX(jlo,i); j <= jhi; j++) {
+      cut[i][j] = kernel_one;
+      phase_support[i][j] = phase_one;
+      setflag[i][j] = 1;
+      count++;
+    }
+  }
+
+  if (count == 0)
+    error->all(FLERR,"Incorrect args for pair coefficients sph/twospecies/isodiffusion/migration/csr/constrc/bv1");
+}
+
+/* ----------------------------------------------------------------------
+   init for one type pair i,j and corresponding j,i
+   ------------------------------------------------------------------------- */
+
+double PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::init_one(int i, int j) {
+
+  if (setflag[i][j] == 0) {
+    error->all(FLERR,"All pair sph/twospecies/isodiffusion/migration/csr/bv/nucleation coeffs are not set");
+  }
+
+  cut[j][i] = cut[i][j];
+  phase_support[j][i] = phase_support[i][j];
+
+  return cut[i][j];
+}
+
+/* ---------------------------------------------------------------------- */
+
+double PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::single(int i, int j, int itype, int jtype,
+					    double rsq, double factor_coul, double factor_lj, double &fforce) {
+  fforce = 0.0;
+
+  return 0.0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::pack_forward_comm(int n, int *list, double *buf,
+						    int pbc_flag, int *pbc)
+{
+  int i, j, m;
+  m = 0;
+  for (i = 0; i < n; i++) {
+    j = list[i];
+    buf[m++] = cA[j];
+    buf[m++] = cC[j];
+    buf[m++] = mM[j];
+    buf[m++] = local_pot[j];
+    buf[m++] = atom->type[j];
+  }
+  return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::unpack_forward_comm(int n, int first, double *buf)
+{
+  int i, m, last;
+  m = 0;
+  last = first + n;
+  for (i = first; i < last; i++) {
+    cA[i] = buf[m++];
+    cC[i] = buf[m++];
+    mM[i] = buf[m++];
+    local_pot[i] = buf[m++];
+    atom->type[i] = buf[m++];
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+int PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::pack_reverse_comm(int n, int first, double *buf)
+{
+  int i,m,last;
+  m = 0;
+  last = first + n;
+  for (i = first; i < last; i++) {
+    buf[m++] = dcA[i];
+    buf[m++] = dcC[i];
+    buf[m++] = dmM[i];
+  }
+  return m;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairSPHTwospeciesIsodiffusionMigrationCSRbvNucleation::unpack_reverse_comm(int n, int *list, double *buf)
+{
+  int i,j,m;
+  m = 0;
+  for (i = 0; i < n; i++) {
+    j = list[i];
+
+    dcA[j] += buf[m++];
+    dcC[j] += buf[m++];
+    dmM[j] += buf[m++];
+  }
+}
