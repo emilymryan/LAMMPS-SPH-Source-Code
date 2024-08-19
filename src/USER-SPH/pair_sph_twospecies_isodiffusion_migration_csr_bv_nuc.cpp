@@ -331,7 +331,7 @@ void PairSPHTwospeciesIsodiffusionMigrationCSRbvnuc::compute(int eflag, int vfla
 	  if (r <= phase_support[itype][jtype]) {
 	    
 	    // Overpotential calculation
-	    overPot = applied_pot + local_pot[i]; //- anodePot
+	    overPot = applied_pot - local_pot[i]; //- anodePot
         
 	    // Butler - Volmer equations for reaction at solid fluid interface
 	    deltaDcC = 1.0*RC[j]*bulkcA*bulkcC*(((cC[i]/cC_init)*exp(transCoefC*(faraday*overPot/R/T + surf_energy[j]*2*mVol/rR[j]/R/T))) - ((cA[i]/cA_init)*exp(-1*transCoefM*(faraday*overPot/R/T + surf_energy[j]*2*mVol/rR[j]/R/T))));
@@ -344,7 +344,7 @@ void PairSPHTwospeciesIsodiffusionMigrationCSRbvnuc::compute(int eflag, int vfla
 	  if (r<= phase_support[itype][jtype]) {
 	   
 	    // Overpotential calculation
-	    overPot = applied_pot + local_pot[j]; // - anodePot
+	    overPot = applied_pot - local_pot[j]; // - anodePot
 	   
 	    // Radius Calculation
 	    deltaDrR = (RC[i]*bulkcA*bulkcC*pow(10,-15)*mVol)*(((cC[j]/cC_init)*exp(transCoefC*(faraday*overPot/R/T + surf_energy[i]*2*mVol/rR[i]/R/T))) - ((cA[j]/cA_init)*exp(-1*transCoefM*(faraday*overPot/R/T + surf_energy[i]*2*mVol/rR[i]/R/T))));
