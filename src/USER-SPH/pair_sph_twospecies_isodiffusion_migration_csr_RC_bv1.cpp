@@ -305,7 +305,7 @@ void PairSPHTwospeciesIsodiffusionMigrationCSRConstRCbv1::compute(int eflag, int
 	else if ((itype==1) && (jtype==2)) {  // fluid-solid interaction
 	  if (r <= phase_support[itype][jtype]) {
 	    // Overpotential calculation
-	    overPot = applied_pot + local_pot[i]; //- anodePot 
+	    overPot = applied_pot - local_pot[i]; //- anodePot 
 	    // Butler - Volmer equations for reaction at solid fluid interface
 	    deltaDcC = 1.0*RC[j]*bulkcA*bulkcC*(((cC[i]/cC_init)*exp(transCoefC*faraday*overPot/R/T)) - (exp(-1*transCoefM*faraday*overPot/R/T)));
 	    deltaDcC *= fabs(nx[i]) + fabs(nx[j]) + fabs(ny[i]) + fabs(ny[j]);
@@ -324,7 +324,7 @@ void PairSPHTwospeciesIsodiffusionMigrationCSRConstRCbv1::compute(int eflag, int
 	else if ((itype==2) && (jtype==1)) { // solid-fluid interaction               
 	  if (r<= phase_support[itype][jtype]) {
 	    	    // Overpotential calculation
-	    overPot = applied_pot + local_pot[j]; // - anodePot
+	    overPot = applied_pot - local_pot[j]; // - anodePot
 	    deltaDmM = (jmass)*RC[i]*bulkcA*bulkcC*(((cC[j]/cC_init)*exp(transCoefC*faraday*overPot/R/T)) - (exp(-1*transCoefM*faraday*overPot/R/T)));
 	    deltaDmM *= fabs(nx[j]) + fabs(nx[i]) + fabs(ny[j]) + fabs(ny[i]);
 	    // printf("deltaDmM: %2.8f \n", deltaDmM);
