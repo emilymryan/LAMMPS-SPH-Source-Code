@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "fix_sph_concentration_mass_radius.h"
+#include "fix_sph_concentration_mass_SEI.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,14 +36,14 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int narg, char **arg) :
+FixSPHConcentrationMassSEI::FixSPHConcentrationMassSEI(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg) {
   if ((atom->esph_flag != 1) || (atom->rho_flag != 1))
     error->all(FLERR,
-	       "fix sph/concentration/mass/radius command requires atom_style with both energy and density, e.g. meso");
+	       "fix sph/concentration/mass command requires atom_style with both energy and density, e.g. meso");
 
   if (narg != 3)
-    error->all(FLERR,"Illegal number of arguments for fix sph/concentration/mass/radius command");
+    error->all(FLERR,"Illegal number of arguments for fix sph/concentration/mass/SEI command");
 
   time_integrate = 0;
 
@@ -52,7 +52,7 @@ FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int na
   int icA = atom->find_custom("cA", fcA);
   if (icA < 0)
     error->all(FLERR,
-	       "Can't find property cA for fix sph/concentration/mass/radius");
+	       "Can't find property cA for fix sph/concentration/mass/SEI");
   cA = atom->dvector[icA];
 
   // find the concentration property
@@ -60,7 +60,7 @@ FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int na
   int idcA = atom->find_custom("dcA", fdcA);
   if (icA < 0)
     error->all(FLERR,
-	       "Can't find property dcA for fix sph/concentration/mass/radius");
+	       "Can't find property dcA for fix sph/concentration/mass/SEI");
   dcA = atom->dvector[idcA];
 
   // find the concentration property
@@ -68,7 +68,7 @@ FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int na
   int icC = atom->find_custom("cC", fcC);
   if (icC < 0)
     error->all(FLERR,
-	       "Can't find property cC for fix sph/concentration/mass/radius");
+	       "Can't find property cC for fix sph/concentration/mass/SEI");
   cC = atom->dvector[icC];
 
   // find the concentration property
@@ -76,47 +76,15 @@ FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int na
   int idcC = atom->find_custom("dcC", fdcC);
   if (icC < 0)
     error->all(FLERR,
-	       "Can't find property dcC for fix sph/concentration/mass/radius");
+	       "Can't find property dcC for fix sph/concentration/mass/SEI");
   dcC = atom->dvector[idcC];
-
-  // find the radius  property                                                                                                                                                  
-  int frR;
-  int irR = atom->find_custom("rR", frR);
-  if (irR < 0)
-    error->all(FLERR,
-               "Can't find property rR for fix sph/concentration/mass/radius");
-  rR = atom->dvector[irR];
-
-  // find the solid-liquid interaction                                                                                                                                          
-  int fdrR;
-  int idrR = atom->find_custom("drR", fdrR);
-  if (idrR < 0)
-    error->all(FLERR,
-               "Can't find property drR for fix sph/concentration/mass/radius");
-  drR = atom->dvector[idrR];
-
-  //find the radius  property                                                                                                         
-  int fnN;
-  int inN = atom->find_custom("nN", fnN);
-  if (inN < 0)
-    error->all(FLERR,
-           "Can't find property nN for fix sph/concentration/mass/radius");
-  nN = atom->dvector[inN];
-  
-  // find the solid-liquid interaction
-  int fdnN;
-  int idnN = atom->find_custom("dnN", fdnN);
-  if (idnN < 0)
-    error->all(FLERR,
-           "Can't find property dnN for fix sph/concentration/mass/radius");
-  dnN = atom->dvector[idnN];
 
   // find the mass of A property
   int fmM;
   int imM = atom->find_custom("mM", fmM);
   if (imM < 0)
     error->all(FLERR,
-	       "Can't find property mM for fix sph/concentration/mass/radius");
+	       "Can't find property mM for fix sph/concentration/mass/SEI");
   mM = atom->dvector[imM];
 
   // find the solid-liquid interaction
@@ -124,19 +92,35 @@ FixSPHConcentrationMassRadius::FixSPHConcentrationMassRadius(LAMMPS *lmp, int na
   int idmM = atom->find_custom("dmM", fdmM);
   if (idmM < 0)
     error->all(FLERR,
-	       "Can't find property dmM for fix sph/concentration/mass/radius");
+	       "Can't find property dmM for fix sph/concentration/mass/SEI");
   dmM = atom->dvector[idmM];
 
+  // find the SEI thickness
+  int fhsei;
+  int ihsei = atom->find_custom("hsei", fhsei);
+  if (ihsei < 0)
+    error->all(FLERR,
+	       "Can't find property hsei for fix sph/concentration/mass/SEI");
+  hsei = atom->dvector[ihsei];
+
+  // find the SEI change in thickness
+  int fdhsei;
+  int idhsei = atom->find_custom("dhsei", fdhsei);
+  if (idhsei < 0)
+    error->all(FLERR,
+	       "Can't find property dhsei for fix sph/concentration/mass/SEI");
+  dhsei = atom->dvector[idhsei];
+  
 }
 
 /* ---------------------------------------------------------------------- */
 
-FixSPHConcentrationMassRadius::~FixSPHConcentrationMassRadius() {
+FixSPHConcentrationMassSEI::~FixSPHConcentrationMassSEI() {
 }
 
 /* ---------------------------------------------------------------------- */
 
-int FixSPHConcentrationMassRadius::setmask() {
+int FixSPHConcentrationMassSEI::setmask() {
   int mask = 0;
   mask |= FINAL_INTEGRATE;
   return mask;
@@ -144,35 +128,31 @@ int FixSPHConcentrationMassRadius::setmask() {
 
 /* ---------------------------------------------------------------------- */
 
-void FixSPHConcentrationMassRadius::init() {
+void FixSPHConcentrationMassSEI::init() {
   dtcA = update->dt;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixSPHConcentrationMassRadius::final_integrate() {
+void FixSPHConcentrationMassSEI::final_integrate() {
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
   int *type = atom->type;
 
   double **x = atom->x;
-  double xtmp, ytmp;
 
   if (igroup == atom->firstgroup)
     nlocal = atom->nfirst;
-
+ 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
       cA[i] += dtcA*dcA[i];
       cC[i] += dtcA*dcC[i];
-      nN[i] += dtcA*dnN[i];
-      //printf("cC: %.10f \n",cC);
-      // Only update mass, radius, and number of nuclei for solid particles
+      hsei[i] += dtcA*dhsei[i];
+      // Only update mass for solid particles
       if (type[i] == 2){
 	mM[i] += dtcA*dmM[i];
-	rR[i] += dtcA*drR[i];
-	//nN[i] += dtcA*dnN[i];
-	//printf("nN: %.10f \n",nN);
+	hsei[i] += dtcA*dhsei[i];
       }
     }
   }
@@ -180,6 +160,6 @@ void FixSPHConcentrationMassRadius::final_integrate() {
 
 /* ---------------------------------------------------------------------- */
 
-void FixSPHConcentrationMassRadius::reset_dt() {
+void FixSPHConcentrationMassSEI::reset_dt() {
   dtcA = update->dt;
 }

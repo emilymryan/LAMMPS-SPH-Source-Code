@@ -13,21 +13,21 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(sph/concentration/mass/radius,FixSPHConcentrationMassRadius)
+FixStyle(sph/concentration/mass/solv,FixSPHConcentrationMassSolv)
 
 #else
 
-#ifndef LMP_FIX_SPH_CONCENTRATION_MASS_RADIUS_H
-#define LMP_FIX_SPH_CONCENTRATION_MASS_RADIUS_H
+#ifndef LMP_FIX_SPH_CONCENTRATION_MASS_SOLV_H
+#define LMP_FIX_SPH_CONCENTRATION_MASS_SOLV_H
 
 #include "fix.h"
 
 namespace LAMMPS_NS {
 
-  class FixSPHConcentrationMassRadius : public Fix {
+  class FixSPHConcentrationMassSolv : public Fix {
   public:
-    FixSPHConcentrationMassRadius(class LAMMPS *, int, char **);
-    virtual ~FixSPHConcentrationMassRadius();
+    FixSPHConcentrationMassSolv(class LAMMPS *, int, char **);
+    virtual ~FixSPHConcentrationMassSolv();
     int setmask();
     virtual void init();
     virtual void final_integrate();
@@ -36,9 +36,9 @@ namespace LAMMPS_NS {
   private:
     class NeighList *list;
   protected:
-    double dtcA, firstjJ;
+    double dtcA;
     double *step_respa;
-    double *cA, *dcA, *cC, *dcC, *mM, *dmM, *rR, *drR, *nN, *dnN;
+    double *cA, *dcA, *cC, *dcC, *cS, *dcS, *mM, *dmM, *hH, *dhH;
     int mass_require;
 
     class Pair *pair;
